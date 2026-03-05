@@ -6,170 +6,56 @@
     <title>Sxlva | Java Full Stack Portfolio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+
+    <!-- 样式导入 -->
+    <link rel="stylesheet" href="styles/global.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/themes.css">
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
-<div class="max-w-2xl mx-auto px-4 py-12">
-    <header class="mb-12">
-        <h1 class="text-4xl font-bold mb-2 header-title">傅崇睿 (Sxlva)</h1>
-        <p class="text-blue-600 font-medium header-subtitle">大连外国语大学 · 软件工程 · 2023 届</p>
-        <div class="flex gap-4 mt-4 text-sm text-gray-500 header-tags">
-            <span>🇯🇵 JLPT N2 备考中</span>
-            <span>☕ Java Full Stack</span>
-        </div>
-    </header>
+<body class="text-gray-100 font-sans">
+<!-- 鼠标跟随光晕 -->
+<div id="mouse-glow"></div>
 
-    <section class="mb-12">
-        <h2 class="text-xl font-bold mb-4 flex items-center section-title">
-            <span class="mr-2">🖥️</span> 云端后端状态 (117.72.153.14:8091)
-        </h2>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 status-card">
-            <div id="api-status" class="flex items-center text-lg status-indicator">
-                <span class="w-3 h-3 bg-gray-300 rounded-full animate-pulse mr-3"></span>
-                <span class="text-gray-500">连接中...</span>
-            </div>
-            <p class="text-xs mt-3 text-gray-400">基于现有的 [查询奖品列表] 接口进行实时链路探测</p>
-        </div>
-    </section>
+<div class="max-w-2xl mx-auto px-4 py-12 main-container">
+    <!-- 语言切换器容器 -->
+    <div id="language-switcher-container"></div>
 
-    <section class="mb-12">
-        <h2 class="text-xl font-bold mb-4 border-l-4 border-black pl-4 section-title">分布式抽奖系统演示</h2>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 raffle-card">
-            <p class="text-sm text-gray-600 mb-6">该项目部署于京东云，前端通过 CORS 跨域调用后端 API，展示了策略装配与随机抽奖核心逻辑。</p>
+    <!-- 头部容器 -->
+    <header id="header-container"></header>
 
-            <div class="space-y-4">
-                <button onclick="testRaffle()"
-                        class="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition raffle-btn">
-                    执行随机抽奖 (Strategy: 1000006)
-                </button>
-                <div id="raffle-result" class="p-4 bg-gray-50 rounded-lg text-sm min-h-[50px] flex items-center justify-center border border-dashed raffle-result">
-                    暂无抽奖数据
-                </div>
-            </div>
-        </div>
-    </section>
+    <!-- 云端状态容器 -->
+    <section id="cloud-status-container"></section>
+
+    <!-- 性能监控容器 -->
+    <section id="dashboard-container"></section>
+
+    <!-- 抽奖系统容器 -->
+    <section id="raffle-container"></section>
+
+    <!-- 链路追踪容器 -->
+    <section id="trace-container"></section>
 </div>
 
-<script>
-    const API_BASE = "http://117.72.153.14:8091/api/v1/raffle";
-
-    // GSAP 初始化动画
-    gsap.registerEffect({
-        name: "fadeInUp",
-        effect: (targets, config) => {
-            return gsap.to(targets, {
-                duration: config.duration || 0.8,
-                opacity: 1,
-                y: 0,
-                ease: "power3.out"
-            });
-        },
-        defaults: { duration: 0.8 }
-    });
-
-    // 页面加载动画
-    gsap.set([".header-title", ".header-subtitle", ".header-tags", ".section-title", ".status-card", ".raffle-card"], {
-        opacity: 0,
-        y: 20
-    });
-
-    gsap.to(".header-title", { opacity: 1, y: 0, duration: 0.6, delay: 0.1 });
-    gsap.to(".header-subtitle", { opacity: 1, y: 0, duration: 0.6, delay: 0.2 });
-    gsap.to(".header-tags", { opacity: 1, y: 0, duration: 0.6, delay: 0.3 });
-    gsap.to([".section-title", ".status-card", ".raffle-card"], {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        stagger: 0.2,
-        delay: 0.4
-    });
-
-    // 状态指示灯脉冲 + 颜色变化动画
-    function animateStatusIndicator(color, label) {
-        const statusEl = document.querySelector('.status-indicator');
-        const dot = statusEl.querySelector('span:first-child');
-
-        gsap.to(dot, {
-            backgroundColor: color,
-            duration: 0.3,
-            ease: "power2.inOut"
-        });
-
-        gsap.to(statusEl, {
-            opacity: 0.8,
-            duration: 0.2,
-            yoyo: true,
-            repeat: 1
-        });
-    }
-
-    // 健康检查
-    async function checkHealth() {
-        const statusEl = document.getElementById('api-status');
-        try {
-            const response = await fetch(`${API_BASE}/query_raffle_award_list`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ strategyId: 1000001 })
-            });
-            const res = await response.json();
-            if (response.ok && res.code === "0000") {
-                statusEl.innerHTML = `<span class="w-3 h-3 bg-green-500 rounded-full mr-3 status-dot"></span> <span class="text-green-600 font-bold">系统在线 (Service Online)</span>`;
-                animateStatusIndicator("#22c55e", "online");
-            } else {
-                statusEl.innerHTML = `<span class="w-3 h-3 bg-yellow-500 rounded-full mr-3 status-dot"></span> <span class="text-yellow-600 font-bold">业务异常 (Service Abnormal)</span>`;
-                animateStatusIndicator("#eab308", "abnormal");
-            }
-        } catch (e) {
-            statusEl.innerHTML = `<span class="w-3 h-3 bg-red-500 rounded-full mr-3 status-dot"></span> <span class="text-red-600 font-bold">系统离线 (Network Timeout)</span>`;
-            animateStatusIndicator("#ef4444", "offline");
-        }
-    }
-
-    // 抽奖动画
-    async function testRaffle() {
-        const resultEl = document.getElementById('raffle-result');
-        const btn = document.querySelector('.raffle-btn');
-
-        // 按钮放大动画
-        gsap.to(btn, { scale: 0.95, duration: 0.1 });
-        gsap.to(btn, { scale: 1, duration: 0.1, delay: 0.1 });
-
-        resultEl.innerHTML = `<span class="animate-spin mr-2">🌀</span> 抽奖中...`;
-        gsap.fromTo(resultEl, { opacity: 0.5 }, { opacity: 1, duration: 0.3 });
-
-        try {
-            const response = await fetch(`${API_BASE}/random_raffle`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ strategyId: 100006 })
-            });
-            const res = await response.json();
-            if (res.code === "0000") {
-                resultEl.innerHTML = `抽奖成功！奖品ID: <strong class="text-red-600 ml-1">${res.data.awardId}</strong>`;
-
-                // 成功动画：缩放 + 闪光
-                gsap.fromTo(resultEl,
-                    { scale: 0.8, opacity: 0 },
-                    { scale: 1, opacity: 1, duration: 0.5, ease: "elastic.out(1, 0.5)" }
-                );
-                gsap.to(resultEl, {
-                    boxShadow: "0 0 20px rgba(34, 197, 94, 0.6)",
-                    duration: 0.3,
-                    yoyo: true,
-                    repeat: 1
-                });
-            } else {
-                resultEl.innerHTML = `⚠️ 业务异常: ${res.info}`;
-                gsap.to(resultEl, { color: "#dc2626", duration: 0.3 });
-            }
-        } catch (e) {
-            resultEl.innerHTML = `调用失败，请检查后端跨域配置或防火墙`;
-            gsap.to(resultEl, { color: "#dc2626", duration: 0.3 });
-        }
-    }
-
-    // 初始化
-    checkHealth();
-</script>
+<!-- 脚本导入（顺序重要） -->
+<script src="js/config/i18n.js"></script>
+<script src="js/config/api.config.js"></script>
+<script src="js/config/tech-stack.js"></script>
+<script src="js/utils/performance.js"></script>
+<script src="js/utils/animation.js"></script>
+<script src="js/utils/logger.js"></script>
+<script src="js/services/api.service.js"></script>
+<script src="js/services/i18n.service.js"></script>
+<script src="js/services/health.service.js"></script>
+<script src="js/components/mouse-glow.js"></script>
+<script src="js/components/language-switcher.js"></script>
+<script src="js/components/header.js"></script>
+<script src="js/components/cloud-status.js"></script>
+<script src="js/components/dashboard.js"></script>
+<script src="js/components/raffle-system.js"></script>
+<script src="js/components/trace-chart.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
